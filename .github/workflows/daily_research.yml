@@ -1,0 +1,23 @@
+name: Daily Tech Research
+on:
+  schedule:
+    - cron: '0 1 * * *'  # 毎日 JST 10:00 (UTC 01:00)
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python src/main.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "research: daily report $(date +'%Y-%m-%d')"
