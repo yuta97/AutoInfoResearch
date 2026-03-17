@@ -1,11 +1,11 @@
 import feedparser
-from utils import strip_html, truncate, batch_summarize
+from utils import strip_html, truncate, batch_summarize, fetch_article_text
 
 
 HATENA_RSS_URL = "https://b.hatena.ne.jp/hotentry/it.rss"
 
 
-def fetch_hatena_entries(limit: int = 20) -> list[dict]:
+def fetch_hatena_entries(limit: int = 5) -> list[dict]:
     feed = feedparser.parse(HATENA_RSS_URL)
     entries = []
     summarize_inputs = []
@@ -20,12 +20,16 @@ def fetch_hatena_entries(limit: int = 20) -> list[dict]:
                     pass
 
         title = entry.get("title", "")
-        # Use RSS summary as article content for Claude
-        content = truncate(strip_html(entry.get("summary", "")), 1000)
+        link = entry.get("link", "")
+        # Fetch actual article content from the URL
+        content = fetch_article_text(link)
+        # Fall back to RSS description if article fetch failed
+        if not content:
+            content = truncate(strip_html(entry.get("summary", "")), 1000)
 
         entries.append({
             "title": title,
-            "link": entry.get("link", ""),
+            "link": link,
             "bookmark_count": bookmark_count,
             "summary": "",
         })

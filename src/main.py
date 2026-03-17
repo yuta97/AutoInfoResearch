@@ -1,5 +1,9 @@
 import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()  # Must run before importing modules that initialize API clients
+
 from hatena import fetch_hatena_entries
 from hackernews import fetch_hn_stories
 from markdown_writer import write_markdown

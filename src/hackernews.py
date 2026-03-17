@@ -7,7 +7,7 @@ HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
 
-def fetch_hn_stories(limit: int = 20, candidate_count: int = 50) -> list[dict]:
+def fetch_hn_stories(limit: int = 5, candidate_count: int = 50) -> list[dict]:
     response = requests.get(HN_TOP_STORIES_URL, timeout=10)
     response.raise_for_status()
     story_ids = response.json()[:candidate_count]
