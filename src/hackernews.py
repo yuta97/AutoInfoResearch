@@ -1,6 +1,7 @@
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from utils import fetch_article_text, summarize_with_claude
+from utils import fetch_article_text, summarize_with_claude, filter_by_interests
+from interests import load_interests
 
 
 HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
@@ -8,6 +9,8 @@ HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
 
 def fetch_hn_stories(limit: int = 5, candidate_count: int = 50) -> list[dict]:
+    interests = load_interests()
+
     response = requests.get(HN_TOP_STORIES_URL, timeout=10)
     response.raise_for_status()
     story_ids = response.json()[:candidate_count]
@@ -32,11 +35,13 @@ def fetch_hn_stories(limit: int = 5, candidate_count: int = 50) -> list[dict]:
             continue
 
     stories.sort(key=lambda x: x["score"], reverse=True)
-    top_stories = stories[:limit]
+
+    # Filter by interests relevance (from score-sorted candidates)
+    top_stories = filter_by_interests(stories, interests, keep=limit, title_key="title")
 
     def _fetch_and_summarize(idx: int, story: dict) -> tuple[int, str]:
         content = fetch_article_text(story["url"])
-        summary = summarize_with_claude(story["title"], content)
+        summary = summarize_with_claude(story["title"], content, interests)
         return idx, summary
 
     with ThreadPoolExecutor(max_workers=10) as executor:

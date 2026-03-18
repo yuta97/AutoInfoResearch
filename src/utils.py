@@ -66,10 +66,20 @@ def fetch_article_text(url: str, timeout: int = 5) -> str:
         return ""
 
 
-def summarize_with_claude(title: str, content: str) -> str:
+def summarize_with_claude(title: str, content: str, interests: str = "") -> str:
     """Summarize article using Claude API. Returns 100-300 char summary."""
     if not title and not content:
         return ""
+
+    if interests:
+        system_prompt = (
+            "あなたは情報収集アシスタントです。以下はユーザーの興味・関心領域の定義です。\n\n"
+            f"{interests}\n\n"
+            "この興味領域を踏まえ、ユーザーにとって有益な観点で記事を要約してください。"
+        )
+    else:
+        system_prompt = "あなたは情報収集アシスタントです。記事を簡潔に要約してください。"
+
     prompt = (
         "以下の記事を100〜300文字で簡潔に要約してください。要約文のみを返してください。\n\n"
         f"タイトル: {title}\n"
@@ -79,6 +89,7 @@ def summarize_with_claude(title: str, content: str) -> str:
         response = _client.messages.create(
             model="claude-haiku-4-5",
             max_tokens=400,
+            system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.content[0].text.strip()
@@ -88,12 +99,73 @@ def summarize_with_claude(title: str, content: str) -> str:
         return ""
 
 
-def batch_summarize(items: list[dict], max_workers: int = 10) -> list[str]:
+def filter_by_interests(
+    items: list[dict],
+    interests: str,
+    keep: int = 5,
+    title_key: str = "title",
+) -> list[dict]:
+    """Score items by relevance to interests and return top `keep` items.
+
+    Each item must have a key matching `title_key`. Items are scored 1-10
+    via a single Claude call and sorted descending. Falls back to original
+    order if Claude call fails.
+    """
+    if not interests or len(items) <= keep:
+        return items[:keep]
+
+    titles_block = "\n".join(
+        f"{i + 1}. {item[title_key]}" for i, item in enumerate(items)
+    )
+    prompt = (
+        "以下はユーザーの興味・関心領域です。\n\n"
+        f"{interests}\n\n"
+        "---\n"
+        "次の記事タイトルそれぞれについて、上記の興味領域への関連度を1〜10で評価してください。\n"
+        "必ず以下の形式のみで返してください（他のテキスト不要）:\n"
+        "1: <スコア>\n2: <スコア>\n...\n\n"
+        f"記事タイトル一覧:\n{titles_block}"
+    )
+    try:
+        response = _client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=200,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        scores_text = response.content[0].text.strip()
+        scores: dict[int, float] = {}
+        for line in scores_text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(":", 1)
+            if len(parts) == 2:
+                try:
+                    idx = int(parts[0].strip()) - 1
+                    score = float(parts[1].strip())
+                    scores[idx] = score
+                except ValueError:
+                    continue
+
+        scored_items = [
+            (scores.get(i, 5.0), item) for i, item in enumerate(items)
+        ]
+        scored_items.sort(key=lambda x: x[0], reverse=True)
+        return [item for _, item in scored_items[:keep]]
+    except Exception as e:
+        import sys
+        print(f"  [WARN] filter_by_interests failed: {e}", file=sys.stderr)
+        return items[:keep]
+
+
+def batch_summarize(items: list[dict], interests: str = "", max_workers: int = 10) -> list[str]:
     """Summarize a list of {"title": ..., "content": ...} in parallel."""
     results = [""] * len(items)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_idx = {
-            executor.submit(summarize_with_claude, item["title"], item.get("content", "")): i
+            executor.submit(
+                summarize_with_claude, item["title"], item.get("content", ""), interests
+            ): i
             for i, item in enumerate(items)
         }
         for future in as_completed(future_to_idx):
