@@ -8,6 +8,8 @@ OUTPUT_DIR = "output"
 def write_markdown(
     hatena_entries: list[dict],
     hn_stories: list[dict],
+    qiita_entries: list[dict] | None = None,
+    zenn_entries: list[dict] | None = None,
     target_date: date | None = None,
 ) -> str:
     if target_date is None:
@@ -43,6 +45,34 @@ def write_markdown(
         summary = story.get("summary", "").replace("|", "\\|").replace("\n", " ").replace("\r", "")
         cell = f"[{title}]({story['url']})<br>{summary}" if summary else f"[{title}]({story['url']})"
         lines.append(f"| {i} | {cell} | {story['score']} | {story['comments']} |")
+
+    if qiita_entries:
+        lines += [
+            "",
+            "## Qiita 人気記事",
+            "",
+            "| # | タイトル |",
+            "|---|---------|",
+        ]
+        for i, entry in enumerate(qiita_entries, 1):
+            title = entry["title"].replace("|", "\\|")
+            summary = entry.get("summary", "").replace("|", "\\|").replace("\n", " ").replace("\r", "")
+            cell = f"[{title}]({entry['link']})<br>{summary}" if summary else f"[{title}]({entry['link']})"
+            lines.append(f"| {i} | {cell} |")
+
+    if zenn_entries:
+        lines += [
+            "",
+            "## Zenn トレンド",
+            "",
+            "| # | タイトル |",
+            "|---|---------|",
+        ]
+        for i, entry in enumerate(zenn_entries, 1):
+            title = entry["title"].replace("|", "\\|")
+            summary = entry.get("summary", "").replace("|", "\\|").replace("\n", " ").replace("\r", "")
+            cell = f"[{title}]({entry['link']})<br>{summary}" if summary else f"[{title}]({entry['link']})"
+            lines.append(f"| {i} | {cell} |")
 
     lines.append("")
 
