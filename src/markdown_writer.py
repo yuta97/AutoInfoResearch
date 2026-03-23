@@ -27,7 +27,7 @@ def write_markdown(
     ]
     for i, entry in enumerate(hatena_entries, 1):
         title = entry["title"].replace("|", "\\|")
-        summary = entry.get("summary", "").replace("|", "\\|")
+        summary = entry.get("summary", "").replace("|", "\\|").replace("\n", " ").replace("\r", "")
         cell = f"[{title}]({entry['link']})<br>{summary}" if summary else f"[{title}]({entry['link']})"
         lines.append(f"| {i} | {cell} | {entry['bookmark_count']} |")
 
@@ -40,7 +40,7 @@ def write_markdown(
     ]
     for i, story in enumerate(hn_stories, 1):
         title = story["title"].replace("|", "\\|")
-        summary = story.get("summary", "").replace("|", "\\|")
+        summary = story.get("summary", "").replace("|", "\\|").replace("\n", " ").replace("\r", "")
         cell = f"[{title}]({story['url']})<br>{summary}" if summary else f"[{title}]({story['url']})"
         lines.append(f"| {i} | {cell} | {story['score']} | {story['comments']} |")
 
